@@ -94,20 +94,6 @@ You'll need to obtain this API key before starting:
 - PostgreSQL Docker: https://hub.docker.com/_/postgres
 - Google Gemini API: https://ai.google.dev/docs
 
-## Project Structure
-```
-n8n_learning/
-├── docker-compose.yml                # Services configuration
-├── .env                              # Environment variables (API keys)
-├── .env.example                      # Example env file (safe to commit)
-├── init-postgres.sql                 # Creates n8n database
-├── init-db.sql                       # PostgreSQL initialization script
-├── Database Analyst Chatbot.json     # Working n8n workflow
-├── README.md                         # Main documentation
-├── SETUP_COMPLETE.md                 # Quick start guide
-├── WORKFLOW_GUIDE.md                 # Workflow building guide
-└── todo.md                           # This file
-```
 
 ## Notes
 - n8n web interface: http://localhost:5678
