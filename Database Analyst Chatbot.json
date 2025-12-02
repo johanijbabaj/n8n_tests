@@ -1,0 +1,319 @@
+{
+  "name": "Database Analyst Chatbot",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "chatbot",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "c6a30ab7-df1c-41f0-8c12-c88ef88cf3a2",
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        -1840,
+        288
+      ],
+      "webhookId": "chatbot"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT table_name, column_name, data_type\nFROM information_schema.columns\nWHERE table_schema = 'public'\nAND table_name IN ('customers', 'products', 'orders')\nORDER BY table_name, ordinal_position;",
+        "options": {}
+      },
+      "id": "ce71cd04-6020-4755-8e4f-31a62b384f73",
+      "name": "Get Database Schema",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -1616,
+        288
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "y6Zqlzqh7PZ1h7yk",
+          "name": "Analytics Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const schemaData = $input.all();\n\n// Group columns by table\nconst tables = {};\nfor (const row of schemaData) {\n  const tableName = row.json.table_name;\n  if (!tables[tableName]) {\n    tables[tableName] = [];\n  }\n  tables[tableName].push(`${row.json.column_name} (${row.json.data_type})`);\n}\n\n// Format as readable text\nlet schemaText = \"DATABASE SCHEMA:\\n\\n\";\nfor (const [tableName, columns] of Object.entries(tables)) {\n  schemaText += `Table: ${tableName}\\n`;\n  schemaText += `Columns: ${columns.join(', ')}\\n\\n`;\n}\n\n// Add views information\nschemaText += `\\nAvailable Views:\\n`;\nschemaText += `- sales_summary: Monthly aggregated sales metrics\\n`;\nschemaText += `- top_products: Products ranked by revenue\\n`;\nschemaText += `- customer_analytics: Customer lifetime value and behavior\\n`;\nschemaText += `- regional_performance: Sales by geographic region\\n`;\n\n// Get question from webhook\nconst question = $('Webhook').item.json.body.question || $('Webhook').item.json.query.question || \"Show database statistics\";\n\nreturn [{\n  json: {\n    schema: schemaText,\n    question: question\n  }\n}];"
+      },
+      "id": "c8e855bc-fb90-4a63-b678-1d687a68a719",
+      "name": "Format Schema",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1392,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "contentType": "raw",
+        "body": "= {{ JSON.stringify($json) }}",
+        "options": {}
+      },
+      "id": "65c13ccf-b3c4-43c5-b9d2-f557a4c34a1d",
+      "name": "Gemini API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -960,
+        288
+      ],
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "9RwbUhIKtEMVRQ1o",
+          "name": "Gemini API Key"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const geminiResponse = $input.first().json;\n\n// Extract text from Gemini response\nlet responseText = '';\nif (geminiResponse.candidates && geminiResponse.candidates[0]) {\n  const parts = geminiResponse.candidates[0].content.parts;\n  responseText = parts.map(p => p.text).join('');\n}\n\nconst question = $('Format Schema').item.json.question;\n\n// Try to extract SQL query from response\nlet sqlQuery = null;\nconst sqlMatch = responseText.match(/SQL Query:\\s*([^\\n]+)/i);\nif (sqlMatch && sqlMatch[1] && !sqlMatch[1].toLowerCase().includes('none')) {\n  sqlQuery = sqlMatch[1].trim();\n  // Clean up the SQL query - remove markdown code blocks if present\n  sqlQuery = sqlQuery.replace(/^```sql\\s*|\\s*```$/gi, '');\n  sqlQuery = sqlQuery.replace(/^[`'\"]|[`'\"]$/g, '');\n}\n\nreturn [{\n  json: {\n    question: question,\n    gemini_response: responseText,\n    sql_query: sqlQuery,\n    has_query: sqlQuery !== null && sqlQuery !== ''\n  }\n}];"
+      },
+      "id": "55f1e3f0-4d51-43f8-b2b9-58d612833574",
+      "name": "Parse Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -752,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "boolean": [
+            {
+              "value1": "={{ $json.has_query }}",
+              "value2": true
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "0c55c3a9-a527-463c-a61a-478755bf8f34",
+      "name": "Has SQL Query?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2,
+      "position": [
+        -528,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "={{ $json.sql_query }}",
+        "options": {}
+      },
+      "id": "569b54a0-e2b6-4e61-a9e5-65396601013a",
+      "name": "Execute Query",
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.5,
+      "position": [
+        -304,
+        176
+      ],
+      "credentials": {
+        "postgres": {
+          "id": "y6Zqlzqh7PZ1h7yk",
+          "name": "Analytics Database"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Get data from previous nodes\nconst parseNode = $('Parse Response').item.json;\nconst queryResults = $input.all();\n\n// Build response\nlet response = {\n  question: parseNode.question,\n  answer: parseNode.gemini_response,\n  llm_used: \"gemini-1.5-pro\"\n};\n\n// Add query results if available\nif (queryResults && queryResults.length > 0 && queryResults[0].json) {\n  response.sql_query = parseNode.sql_query;\n  response.query_results = queryResults.map(item => item.json);\n  response.result_count = queryResults.length;\n}\n\nreturn [{ json: response }];"
+      },
+      "id": "188c0837-a27b-4ec3-ab85-98b24ab0c1d8",
+      "name": "Format Response",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -80,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json }}",
+        "options": {}
+      },
+      "id": "d329a4cf-cf42-452a-bf82-86f9cf8735b2",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        128,
+        288
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const schema = $json.schema;\n  const question = $json.question;\n\n  const prompt = `You are a helpful data analyst assistant with access to a PostgreSQL database containing e-commerce data.\n\n  ${schema}\n\n  When answering questions:\n  1. Analyze what data the user needs\n  2. If a SQL query would help, generate it (SELECT queries only)\n  3. Provide clear, concise insights\n\n  User Question: ${question}\n\n  If you need to query the database, start your response with 'SQL Query: [your query]' on a new line, then provide your \n  analysis.\n  If no query is needed, start with 'SQL Query: none' and provide your answer.`;\n\n  return [{\n    json: {\n      contents: [{\n        parts: [{\n          text: prompt\n        }]\n      }],\n      generationConfig: {\n        temperature: 0.7,\n        maxOutputTokens: 1000\n      }\n    }\n  }];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1184,
+        288
+      ],
+      "id": "754dabe7-a7ce-408d-bdbd-f573013d155e",
+      "name": "Code in JavaScript"
+    }
+  ],
+  "pinData": {
+    "Webhook": [
+      {
+        "json": {
+          "headers": {
+            "host": "localhost:5678",
+            "user-agent": "curl/7.84.0",
+            "accept": "*/*",
+            "content-type": "application/json",
+            "content-length": "46"
+          },
+          "params": {},
+          "query": {},
+          "body": {
+            "question": "How many customers do we have?"
+          },
+          "webhookUrl": "http://localhost:5678/webhook-test/chatbot",
+          "executionMode": "test"
+        }
+      }
+    ]
+  },
+  "connections": {
+    "Webhook": {
+      "main": [
+        [
+          {
+            "node": "Get Database Schema",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Database Schema": {
+      "main": [
+        [
+          {
+            "node": "Format Schema",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Schema": {
+      "main": [
+        [
+          {
+            "node": "Code in JavaScript",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gemini API": {
+      "main": [
+        [
+          {
+            "node": "Parse Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Response": {
+      "main": [
+        [
+          {
+            "node": "Has SQL Query?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has SQL Query?": {
+      "main": [
+        [
+          {
+            "node": "Execute Query",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Query": {
+      "main": [
+        [
+          {
+            "node": "Format Response",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Response": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Code in JavaScript": {
+      "main": [
+        [
+          {
+            "node": "Gemini API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "8fe71ede-ec8c-4823-a66a-07c4ea2b256f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "dcaaa3804927743ab886714e96f02812f7f3f71aca1fa76dcd120fe31ff4f580"
+  },
+  "id": "40sHkT1kWmyljyA3",
+  "tags": []
+}
