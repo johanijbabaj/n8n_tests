@@ -29,7 +29,7 @@ docker compose ps
 2. Go to **Workflows** → **Import from File**
 3. Select `Database Analyst Chatbot.json`
 4. Configure credentials:
-   - **PostgreSQL**: Host `postgres`, Port `5432`, Database `analytics_db`, User `n8n_user`, Password `secure_password_123`
+   - **PostgreSQL**: Host `postgres`, Port `5432`, Database `analytics_db`, User `n8n_user`, Password `secure_password_123` (or as configured in `.env`)
    - **Gemini API**: HTTP Header Auth with header `x-goog-api-key` and your API key
 5. Activate workflow (toggle switch)
 
