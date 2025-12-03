@@ -99,6 +99,18 @@ docker compose restart n8n
 - Verify workflow is activated (green toggle)
 - Check webhook URL: http://localhost:5678/webhook/chatbot
 
+## Connecting from Local Machine
+
+If you want to connect to the database from your local machine (e.g., using DBeaver, pgAdmin, or psql):
+
+1. **Host**: `localhost`
+2. **Port**: `5432`
+3. **Database**: `analytics_db`
+4. **User**: `n8n_user`
+5. **Password**: `secure_password_123` (or whatever is in your `.env`)
+
+**Note:** If you are running this in a cloud environment (like GitHub Codespaces), make sure the port `5432` is forwarded.
+
 ## Project Structure
 
 ```

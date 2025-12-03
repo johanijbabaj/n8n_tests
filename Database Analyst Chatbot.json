@@ -135,7 +135,7 @@
     },
     {
       "parameters": {
-        "jsCode": "// Get data from previous nodes\nconst parseNode = $('Parse Response').item.json;\nconst queryResults = $input.all();\n\n// Build response\nlet response = {\n  question: parseNode.question,\n  answer: parseNode.gemini_response,\n  llm_used: \"gemini-1.5-pro\"\n};\n\n// Add query results if available\nif (queryResults && queryResults.length > 0 && queryResults[0].json) {\n  response.sql_query = parseNode.sql_query;\n  response.query_results = queryResults.map(item => item.json);\n  response.result_count = queryResults.length;\n}\n\nreturn [{ json: response }];"
+        "jsCode": "// Get data from previous nodes\nconst parseNode = $('Parse Response').item.json;\nconst queryResults = $input.all();\n\n// Build response\nlet response = {\n  question: parseNode.question,\n  answer: parseNode.gemini_response,\n  llm_used: \"gemini-2.5-flash\"\n};\n\n// Add query results if available\nif (queryResults && queryResults.length > 0 && queryResults[0].json) {\n  response.sql_query = parseNode.sql_query;\n  response.query_results = queryResults.map(item => item.json);\n  response.result_count = queryResults.length;\n}\n\nreturn [{ json: response }];"
       },
       "id": "188c0837-a27b-4ec3-ab85-98b24ab0c1d8",
       "name": "Format Response",
